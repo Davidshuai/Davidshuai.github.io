@@ -96,4 +96,13 @@ document.addEventListener('touchend',()=>{try{mobileContext().resume()}catch(e){
 if(!Recognition){$('mic').disabled=true;$('mic').textContent='Tap controls available';$('status').textContent='Voice recognition is not supported here. Open in Safari or Chrome, or play with the buttons.';}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopVoice();cancelMic();clearFamilyFeedback()}});
 
+// Start the media element directly inside the tap handler for iPhone playback.
+let tapPlayer=null,tapStopTimer=null,tapPlayId=0;
+const stopBeforeTapPlayer=stopVoice;
+stopVoice=function(){tapPlayId++;stopBeforeTapPlayer();clearInterval(tapStopTimer);if(tapPlayer){tapPlayer.pause();tapPlayer.onloadedmetadata=null;tapPlayer.ontimeupdate=null;}};
+speak=function(text){stopVoice();if(!sound){$('status').textContent='Sound is off. Tap Sound off at the top to turn it on.';return}const pair=mobileTracks.find(([,ranges])=>ranges[text]);if(!pair){$('status').textContent='No recording is available for this phrase.';return}const id=tapPlayId,[start,end]=pair[1][text];tapPlayer=pair[0];const player=tapPlayer;player.muted=false;player.volume=1;player.setAttribute('playsinline','');player.preload='auto';let positioned=false;
+function seek(){if(id!==tapPlayId)return;try{player.currentTime=start;positioned=true}catch(e){}}
+player.onloadedmetadata=seek;player.ontimeupdate=()=>{if(id!==tapPlayId)return;if(!positioned){seek();return}if(player.currentTime>=end){player.pause();clearInterval(tapStopTimer)}};
+if(player.readyState>=1)seek();$('status').textContent='Playing...';const result=player.play();if(result&&result.then)result.then(()=>{if(id!==tapPlayId)return;if(!positioned)seek();tapStopTimer=setInterval(()=>{if(positioned&&player.currentTime>=end){player.pause();clearInterval(tapStopTimer);$('status').textContent='Tap Listen to hear it again.'}},20)}).catch(e=>{if(id!==tapPlayId)return;$('status').textContent='Audio could not play. Check your volume, then tap Listen again.';});};
+
 </script></body></html>
